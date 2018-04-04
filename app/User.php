@@ -1,0 +1,117 @@
+<?php
+
+namespace App;
+
+use Illuminate\Notifications\Notifiable;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Support\Facades\Storage;
+
+class User extends Authenticatable
+{
+    use Notifiable;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array
+     */
+    protected $fillable = [
+        'name', 'email',
+    ];
+
+    /**
+     * The attributes that should be hidden for arrays.
+     *
+     * @var array
+     */
+    protected $hidden = [
+        'password', 'remember_token',
+    ];
+
+    public function posts() {
+        return $this->hasMany(Post::class);
+    }
+
+    public function comments() {
+        return $this->hasMany(Comment::class);
+    }
+
+    public static function add($fields) {
+        $user = new static;
+        $user->fill($fields);
+        $user->password = bcrypt($fields['password']);
+        $user->save();
+
+        return $user;
+    }
+
+    public function edit($fields) {
+        $this->fill($fields);
+        $this->save();
+    }
+    public function generatePassword($password) {
+        if ($password != null) {
+            $this->password = bcrypt($password);
+            $this->save();
+        }
+    }
+    public function remove() {
+        Storage::delete('uploads/'. $this->image);
+        $this->delete();
+    }
+
+    public function uploadAvatar($image) {
+        if ($image == null) {return;}
+
+
+        if ($this->avatar != null)
+        {
+            Storage::delete('uploads/'. $this->avatar);
+        }
+
+        $filename = str_random(10).'.'.$image->extension();
+        //dd(get_class_methods($image));
+        $image->storeAs('uploads', $filename);
+        $this->avatar = $filename;
+        $this->save();
+    }
+    public function getImage() {
+        if ($this->avatar == null) {
+            return '/img/no-image.png';
+        }
+
+        return '/uploads/'. $this->avatar;
+    }
+
+    public function makeAdmin() {
+        $this->is_admin = true;
+        $this->save();
+    }
+
+    public function makeNormal() {
+        $this->is_admin = false;
+        $this->save();
+    }
+
+    public function toggleAdmin($value) {
+        if ($value == null) {return $this->makeNormal();}
+        return $this->makeAdmin();
+    }
+
+    public function banUser() {
+        $this->status = true;
+        $this->save();
+    }
+    public function unbanUser() {
+        $this->status = false;
+        $this->save();
+    }
+
+    public function toggleBanUser($value) {
+        if ($value == null) {
+            return $this->unbanUser();
+        }
+
+        return $this->banUser();
+    }
+}
